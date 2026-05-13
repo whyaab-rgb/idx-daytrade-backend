@@ -1,28 +1,37 @@
 from statistics import mean
 
+
 def sma(values, length):
     if len(values) < length:
         return None
     return mean(values[-length:])
 
+
 def ema(values, length):
     if len(values) < length:
         return None
+
     k = 2 / (length + 1)
     e = values[0]
+
     for price in values[1:]:
         e = price * k + e * (1 - k)
+
     return e
+
 
 def rsi(values, length=14):
     if len(values) < length + 1:
         return None
 
-    gains, losses = [], []
+    gains = []
+    losses = []
+
     recent = values[-(length + 1):]
 
     for i in range(1, len(recent)):
         diff = recent[i] - recent[i - 1]
+
         gains.append(max(diff, 0))
         losses.append(abs(min(diff, 0)))
 
@@ -33,9 +42,12 @@ def rsi(values, length=14):
         return 100
 
     rs = avg_gain / avg_loss
+
     return 100 - (100 / (1 + rs))
 
+
 def calculate_daytrade_signal(symbol: str, candles: list[dict]):
+
     if len(candles) < 25:
         return {
             "symbol": symbol,
@@ -62,74 +74,130 @@ def calculate_daytrade_signal(symbol: str, candles: list[dict]):
     rsi14 = rsi(closes, 14) or 0
     ema20 = ema(closes[-30:], 20) or close
     avg_vol20 = sma(volumes, 20) or volume
+
     prev_high = max(highs[-6:-1])
     prev_low = min(lows[-6:-1])
 
-    change_pct = ((close - prev["close"]) / prev["close"]) * 100 if prev["close"] else 0
+    change_pct = (
+        ((close - prev["close"]) / prev["close"]) * 100
+        if prev["close"]
+        else 0
+    )
+
     vol_ratio = volume / avg_vol20 if avg_vol20 else 0
 
     score = 0
     reasons = []
 
+    # =========================
+    # VOLUME ANALYSIS
+    # =========================
+
     if vol_ratio >= 2:
         score += 25
         reasons.append("volume spike kuat")
+
     elif vol_ratio >= 1.3:
         score += 15
         reasons.append("volume naik")
 
+    # =========================
+    # PRICE MOMENTUM
+    # =========================
+
     if change_pct >= 2:
         score += 20
         reasons.append("harga naik intraday")
+
     elif change_pct > 0:
         score += 10
         reasons.append("harga hijau")
 
+    # =========================
+    # RSI ANALYSIS
+    # =========================
+
     if 45 <= rsi14 <= 75:
         score += 15
         reasons.append("RSI momentum sehat")
+
     elif 35 <= rsi14 < 45:
         score += 8
         reasons.append("RSI mulai rebound")
+
+    # =========================
+    # BREAKOUT
+    # =========================
 
     if close > prev_high:
         score += 20
         reasons.append("breakout high pendek")
 
+    # =========================
+    # EMA TREND
+    # =========================
+
     if close > ema20:
         score += 15
         reasons.append("di atas EMA20")
+
+    # =========================
+    # CANDLE ANALYSIS
+    # =========================
 
     if close > open_:
         score += 5
         reasons.append("candle bullish")
 
-    if score >= 80:
-    action = "ENTRY NOW"
-    momentum = "BREAKOUT"
-    elif score >= 60:
-    action = "WATCH BREAKOUT"
-    momentum = "MOMENTUM"
-    elif score >= 40:
-    action = "BUY ON PULLBACK"
-    momentum = "PULLBACK"
-    else:
-    action = "NO TRADE"
-    momentum = "WEAK"
+    # =========================
+    # FINAL SIGNAL
+    # =========================
 
-    # Risk management sederhana intraday
+    if score >= 80:
+        action = "ENTRY NOW"
+        momentum = "BREAKOUT"
+
+    elif score >= 60:
+        action = "WATCH BREAKOUT"
+        momentum = "MOMENTUM"
+
+    elif score >= 40:
+        action = "BUY ON PULLBACK"
+        momentum = "PULLBACK"
+
+    else:
+        action = "NO TRADE"
+        momentum = "WEAK"
+
+    # =========================
+    # RISK MANAGEMENT
+    # =========================
+
     entry = round(close, 2)
+
     sl = round(min(prev_low, close * 0.97), 2)
+
     risk = max(entry - sl, entry * 0.01)
+
     tp1 = round(entry + risk * 1.2, 2)
     tp2 = round(entry + risk * 2.0, 2)
 
+    # =========================
+    # VOLUME STATUS
+    # =========================
+
     if vol_ratio >= 2:
         volume_status = "VERY HIGH"
+
     elif vol_ratio >= 1.3:
         volume_status = "HIGH"
+
     else:
         volume_status = "NORMAL"
+
+    # =========================
+    # RETURN FINAL RESULT
+    # =========================
 
     return {
         "symbol": symbol,
@@ -144,5 +212,7 @@ def calculate_daytrade_signal(symbol: str, candles: list[dict]):
         "volume_ratio": round(vol_ratio, 2),
         "volume_status": volume_status,
         "score": int(score),
-        "note": ", ".join(reasons) if reasons else "belum ada momentum kuat",
+        "note": ", ".join(reasons)
+        if reasons
+        else "belum ada momentum kuat",
     }
