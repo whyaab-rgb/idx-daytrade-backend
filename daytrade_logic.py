@@ -85,12 +85,12 @@ def calculate_daytrade_signal(symbol: str, candles: list[dict]):
         score += 10
         reasons.append("harga hijau")
 
-    if 55 <= rsi14 <= 70:
+    if 45 <= rsi14 <= 75:
         score += 15
         reasons.append("RSI momentum sehat")
-    elif 50 <= rsi14 < 55:
+    elif 35 <= rsi14 < 45:
         score += 8
-        reasons.append("RSI mulai naik")
+        reasons.append("RSI mulai rebound")
 
     if close > prev_high:
         score += 20
@@ -104,21 +104,18 @@ def calculate_daytrade_signal(symbol: str, candles: list[dict]):
         score += 5
         reasons.append("candle bullish")
 
-    if score >= 85:
-        action = "BUY FAST"
-        momentum = "BREAKOUT"
-    elif score >= 75:
-        action = "BUY PULLBACK"
-        momentum = "MOMENTUM"
+    if score >= 80:
+    action = "ENTRY NOW"
+    momentum = "BREAKOUT"
     elif score >= 60:
-        action = "WATCH"
-        momentum = "REBOUND"
-    elif score >= 45:
-        action = "WAIT"
-        momentum = "SIDEWAYS"
+    action = "WATCH BREAKOUT"
+    momentum = "MOMENTUM"
+    elif score >= 40:
+    action = "BUY ON PULLBACK"
+    momentum = "PULLBACK"
     else:
-        action = "AVOID"
-        momentum = "WEAK"
+    action = "NO TRADE"
+    momentum = "WEAK"
 
     # Risk management sederhana intraday
     entry = round(close, 2)
