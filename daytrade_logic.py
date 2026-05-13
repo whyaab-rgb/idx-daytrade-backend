@@ -26,12 +26,10 @@ def rsi(values, length=14):
 
     gains = []
     losses = []
-
     recent = values[-(length + 1):]
 
     for i in range(1, len(recent)):
         diff = recent[i] - recent[i - 1]
-
         gains.append(max(diff, 0))
         losses.append(abs(min(diff, 0)))
 
@@ -42,12 +40,10 @@ def rsi(values, length=14):
         return 100
 
     rs = avg_gain / avg_loss
-
     return 100 - (100 / (1 + rs))
 
 
 def calculate_daytrade_signal(symbol: str, candles: list[dict]):
-
     if len(candles) < 25:
         return {
             "symbol": symbol,
@@ -67,8 +63,6 @@ def calculate_daytrade_signal(symbol: str, candles: list[dict]):
 
     close = last["close"]
     open_ = last["open"]
-    high = last["high"]
-    low = last["low"]
     volume = last["volume"]
 
     rsi14 = rsi(closes, 14) or 0
@@ -90,45 +84,44 @@ def calculate_daytrade_signal(symbol: str, candles: list[dict]):
     reasons = []
 
     # =========================
-    # VOLUME ANALYSIS
+    # VOLUME
     # =========================
-
     if vol_ratio >= 2:
         score += 25
         reasons.append("volume spike kuat")
-
     elif vol_ratio >= 1.3:
         score += 15
         reasons.append("volume naik")
+    elif vol_ratio >= 0.8:
+        score += 8
+        reasons.append("volume mulai naik")
 
     # =========================
     # PRICE MOMENTUM
     # =========================
-
     if change_pct >= 2:
         score += 20
         reasons.append("harga naik intraday")
-
     elif change_pct > 0:
         score += 10
         reasons.append("harga hijau")
 
     # =========================
-    # RSI ANALYSIS
+    # RSI
     # =========================
-
     if 45 <= rsi14 <= 75:
         score += 15
         reasons.append("RSI momentum sehat")
-
     elif 35 <= rsi14 < 45:
-        score += 8
+        score += 12
         reasons.append("RSI mulai rebound")
+    elif 25 <= rsi14 < 35:
+        score += 5
+        reasons.append("RSI oversold rebound awal")
 
     # =========================
     # BREAKOUT
     # =========================
-
     if close > prev_high:
         score += 20
         reasons.append("breakout high pendek")
@@ -136,35 +129,29 @@ def calculate_daytrade_signal(symbol: str, candles: list[dict]):
     # =========================
     # EMA TREND
     # =========================
-
     if close > ema20:
         score += 15
         reasons.append("di atas EMA20")
 
     # =========================
-    # CANDLE ANALYSIS
+    # CANDLE
     # =========================
-
     if close > open_:
         score += 5
         reasons.append("candle bullish")
 
     # =========================
-    # FINAL SIGNAL
+    # FINAL ACTION
     # =========================
-
-    if score >= 80:
+    if score >= 70:
         action = "ENTRY NOW"
         momentum = "BREAKOUT"
-
-    elif score >= 60:
+    elif score >= 55:
         action = "WATCH BREAKOUT"
         momentum = "MOMENTUM"
-
     elif score >= 40:
         action = "BUY ON PULLBACK"
         momentum = "PULLBACK"
-
     else:
         action = "NO TRADE"
         momentum = "WEAK"
@@ -172,9 +159,7 @@ def calculate_daytrade_signal(symbol: str, candles: list[dict]):
     # =========================
     # RISK MANAGEMENT
     # =========================
-
     entry = round(close, 2)
-
     sl = round(min(prev_low, close * 0.97), 2)
 
     risk = max(entry - sl, entry * 0.01)
@@ -185,19 +170,14 @@ def calculate_daytrade_signal(symbol: str, candles: list[dict]):
     # =========================
     # VOLUME STATUS
     # =========================
-
     if vol_ratio >= 2:
         volume_status = "VERY HIGH"
-
     elif vol_ratio >= 1.3:
         volume_status = "HIGH"
-
+    elif vol_ratio >= 0.8:
+        volume_status = "MEDIUM"
     else:
         volume_status = "NORMAL"
-
-    # =========================
-    # RETURN FINAL RESULT
-    # =========================
 
     return {
         "symbol": symbol,
@@ -212,7 +192,5 @@ def calculate_daytrade_signal(symbol: str, candles: list[dict]):
         "volume_ratio": round(vol_ratio, 2),
         "volume_status": volume_status,
         "score": int(score),
-        "note": ", ".join(reasons)
-        if reasons
-        else "belum ada momentum kuat",
+        "note": ", ".join(reasons) if reasons else "belum ada momentum kuat",
     }
