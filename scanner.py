@@ -12,7 +12,9 @@ def scan_daytrade(limit_symbols: int | None = None, sleep_seconds: float = 2):
     skipped = []
 
     for symbol in symbols:
-        raw = fetch_chart(symbol, timeframe="daily", range_="6mo")
+        # Untuk day trading, gunakan 15m.
+        # Jika ingin scalping cepat, bisa ganti ke "5m".
+        raw = fetch_chart(symbol, timeframe="15m", range_="7d")
 
         if not raw.get("ok"):
             errors.append({
@@ -29,7 +31,6 @@ def scan_daytrade(limit_symbols: int | None = None, sleep_seconds: float = 2):
             time.sleep(sleep_seconds)
             continue
 
-        # Buang candle hari ini yang volume-nya 0
         valid_candles = [
             c for c in candles
             if c.get("volume", 0) > 0
@@ -52,7 +53,6 @@ def scan_daytrade(limit_symbols: int | None = None, sleep_seconds: float = 2):
         close = last["close"]
         volume = last["volume"]
         value = close * volume
-
         prev_close = prev["close"]
 
         if prev_close <= 0:
@@ -67,26 +67,28 @@ def scan_daytrade(limit_symbols: int | None = None, sleep_seconds: float = 2):
         volume_ratio = volume / avg_volume if avg_volume > 0 else 0
 
         # =========================
-        # FAST FILTER LONGGAR
+        # FAST FILTER DAY TRADING
         # =========================
-
-        if volume < 100_000:
-            skipped.append({"symbol": symbol, "reason": "volume kecil"})
-            time.sleep(sleep_seconds)
-            continue
 
         if close < 50:
             skipped.append({"symbol": symbol, "reason": "harga di bawah 50"})
             time.sleep(sleep_seconds)
             continue
 
-        if value < 50_000_000:
-            skipped.append({"symbol": symbol, "reason": "value kecil"})
+        if volume < 50_000:
+            skipped.append({"symbol": symbol, "reason": "volume intraday kecil"})
             time.sleep(sleep_seconds)
             continue
 
-        if volume_ratio < 0.1:
-            skipped.append({"symbol": symbol, "reason": "volume belum naik"})
+        if value < 10_000_000:
+            skipped.append({"symbol": symbol, "reason": "value intraday kecil"})
+            time.sleep(sleep_seconds)
+            continue
+
+        # Untuk day trading, jangan terlalu ketat.
+        # Saham boleh masuk walau volume_ratio masih 0.5
+        if volume_ratio < 0.5:
+            skipped.append({"symbol": symbol, "reason": "volume belum cukup kuat"})
             time.sleep(sleep_seconds)
             continue
 
@@ -96,20 +98,36 @@ def scan_daytrade(limit_symbols: int | None = None, sleep_seconds: float = 2):
 
         signal = calculate_daytrade_signal(symbol, candles)
 
-        # Tambahan info agar tampil di app
+        # Tambahkan klasifikasi entry agar app lebih jelas
+        score = signal.get("score", 0)
+        action = signal.get("action", "WAIT")
+
+        if score >= 85:
+            entry_status = "ENTRY NOW"
+        elif score >= 70:
+            entry_status = "BUY ON PULLBACK"
+        elif score >= 55:
+            entry_status = "WATCH BREAKOUT"
+        else:
+            entry_status = "NO TRADE"
+
+        signal["entry_status"] = entry_status
         signal["last_close"] = close
         signal["last_volume"] = volume
         signal["last_value"] = value
         signal["change_pct"] = round(change_pct, 2)
         signal["volume_ratio"] = round(volume_ratio, 2)
+        signal["timeframe"] = "15m"
 
         print("SYMBOL:", symbol)
+        print("TIMEFRAME: 15m")
         print("JUMLAH CANDLES:", len(candles))
         print("CLOSE:", close)
         print("VOLUME:", volume)
         print("VALUE:", value)
         print("CHANGE %:", round(change_pct, 2))
         print("VOLUME RATIO:", round(volume_ratio, 2))
+        print("ENTRY STATUS:", entry_status)
         print("SIGNAL:", signal)
 
         if signal.get("action") != "SKIP":

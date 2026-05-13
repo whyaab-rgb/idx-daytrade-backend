@@ -20,7 +20,7 @@ def fetch_chart(symbol: str, timeframe: str = "daily", range_: str = "6mo"):
     url = f"{BASE_URL}/chart-saham/{symbol}/{timeframe}"
 
     today = datetime.now()
-    from_date = (today - timedelta(days=180)).strftime("%Y-%m-%d")
+    from_date = (today - timedelta(days=7)).strftime("%Y-%m-%d")
     to_date = today.strftime("%Y-%m-%d")
 
     params = {
